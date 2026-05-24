@@ -115,4 +115,4 @@ neuroligin_project/
 
 ## Authors
 
-Sathvik Loke & Pranith — AstroSynapse Project
+Sathvik Loke & Pranith Valleri
