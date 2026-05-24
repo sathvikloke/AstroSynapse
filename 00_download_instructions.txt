@@ -1,0 +1,69 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  DATA DOWNLOAD INSTRUCTIONS
+  Neuroligin Isoform Expression Project
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+We recommend starting with the Bayraktar et al. (2020) dataset
+because it is astrocyte-focused, manageable in size, and directly
+relevant to this project.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION A — Bayraktar et al. 2020 (RECOMMENDED — start here)
+  "Astrocyte layers in the mammalian cerebral cortex revealed by a
+   single-cell in situ transcriptomic map"
+  GEO Accession: GSE152371
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Go to: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE152371
+2. Under "Supplementary file", download the processed .h5ad file.
+   (File name will contain "processed" or "adata".)
+3. Rename the file to:  astrocytes.h5ad
+4. Place it in the  data/  folder inside this project directory.
+5. In config.py, confirm:
+      DATA_PATH = "data/astrocytes.h5ad"
+      SPECIES   = "mouse"
+      ASTROCYTES_ONLY = True
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION B — Allen Brain Cell Atlas (larger; all cell types)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Go to: https://cellxgene.cziscience.com/collections
+2. Search for "Allen Brain Cell Atlas" or "mouse brain cortex".
+3. Click on a collection → select a dataset → click "Download .h5ad".
+4. Rename to  brain_atlas.h5ad  and place in data/.
+5. In config.py, set:
+      DATA_PATH = "data/brain_atlas.h5ad"
+      SPECIES   = "mouse"   (or "human" depending on the dataset)
+      ASTROCYTES_ONLY = False
+   Then run 02_cluster_annotate.py before 03_astrocyte_subcluster.py.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION C — Human neocortex (Allen Institute)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Go to: https://cellxgene.cziscience.com
+2. Search "human neocortex single cell".
+3. Download a suitable cortex dataset as .h5ad.
+4. In config.py, set SPECIES = "human", ASTROCYTES_ONLY = False.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER DOWNLOADING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Run the scripts in order:
+
+  python 01_preprocess.py
+
+  # If ASTROCYTES_ONLY = False, also run:
+  python 02_cluster_annotate.py
+  # Then open figures/02b_dotplot_markers.png and fill in
+  # the CLUSTER_TO_CELLTYPE dict inside 02_cluster_annotate.py.
+  # Re-run 02_cluster_annotate.py after filling it in.
+
+  python 03_astrocyte_subcluster.py
+  # Open figures/03b_dotplot_subtype_markers.png and fill in
+  # ASTRO_CLUSTER_TO_SUBTYPE inside 03_astrocyte_subcluster.py.
+  # Re-run 03_astrocyte_subcluster.py after filling it in.
+
+  python 04_neuroligin_expression.py
+  python 05_coexpression.py
+
+All figures are saved to the  figures/  folder.
+All tables  are saved to the  results/  folder.
