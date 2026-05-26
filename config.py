@@ -43,7 +43,8 @@ LEIDEN_RES_ASTROCYTES = 0.4   # resolution for astrocyte sub-clustering
 
 # ── GENES OF INTEREST ─────────────────────────────────────────────
 NLGN_GENES = {
-    "mouse": ["Nlgn1", "Nlgn2", "Nlgn3"],
+    "mouse": ["Nlgn1", "Nlgn2", "Nlgn3",
+              "ENSMUSG00000063887", "ENSMUSG00000051790", "ENSMUSG00000031302"],
     "human": ["NLGN1", "NLGN2", "NLGN3"],
 }
 
@@ -95,7 +96,7 @@ ASTROCYTE_SUBTYPE_MARKERS = {
 # ── CO-EXPRESSION ─────────────────────────────────────────────────
 N_TOP_COEXPR_GENES = 500    # top HVGs used for the correlation matrix
 MIN_EXPR_FRACTION  = 0.10   # gene must be expressed in >= 10 % of astrocytes
-CORR_THRESHOLD     = 0.30   # |Pearson r| cutoff for drawing network edges
+CORR_THRESHOLD     = 0.15   # |Pearson r| cutoff for drawing network edges
 
 # ── G:PROFILER ORGANISM CODES ─────────────────────────────────────
 GPROFILER_ORGANISM = {

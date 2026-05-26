@@ -1,0 +1,217 @@
+%% AstroSynapse — ACM Conference Paper
+%% Authors: Sathvik Loke, Pranith Valleri
+%% Template: acmart sigconf
+
+\documentclass[sigconf]{acmart}
+
+%% Remove ACM copyright / conference info for draft submission
+\setcopyright{none}
+\acmConference[ACM BCB '25]{ACM Conference on Bioinformatics, Computational Biology, and Health Informatics}{2025}{TBD}
+
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+%% ─────────────────────────────────────────────────────────────────
+\title{AstroSynapse: Mapping Neuroligin Isoform Expression Across\\Astrocyte Subtypes in the Mouse Motor Cortex}
+
+\author{Sathvik Loke}
+\affiliation{%
+  \institution{Independent Researcher}
+  \city{}
+  \country{USA}
+}
+\email{lokesrinivas@gmail.com}
+
+\author{Pranith Valleri}
+\affiliation{%
+  \institution{Independent Researcher}
+  \city{}
+  \country{}
+}
+\email{}
+
+%% ─────────────────────────────────────────────────────────────────
+\begin{abstract}
+Astrocytes are active participants in synaptic transmission through the tripartite synapse, yet the molecular mechanisms underlying their isoform-specific contributions remain poorly characterized. Neuroligins (Nlgn1, Nlgn2, Nlgn3) are synaptic adhesion molecules classically studied in neurons, but their expression and functional role in astrocyte subtypes is largely unexplored. Here we present \textit{AstroSynapse}, a computational single-cell RNA sequencing (scRNA-seq) pipeline for profiling Neuroligin isoform expression across astrocyte subtypes and constructing co-expression networks to study astrocytic contributions to tripartite synapse signaling. Applying our pipeline to the Allen Brain Cell Atlas mouse primary motor cortex dataset (159,738 cells), we identify four astrocyte subtypes --- Grey matter, White matter, Reactive, and Perisynaptic --- and discover that Nlgn2 and Nlgn3 are significantly upregulated in Reactive astrocytes (log$_2$FC = +0.49 and +0.38, FDR $<$ 0.05), while Nlgn1 is preferentially expressed in Grey matter astrocytes. Co-expression network analysis reveals that Nlgn1 belongs to an 83-gene module enriched for 343 significant Gene Ontology (GO) terms, implicating synaptic signaling and metabolic regulation pathways. These findings suggest isoform-specific roles for Neuroligins in astrocyte identity and reactive state transitions, with implications for understanding glial contributions to synaptic remodeling.
+\end{abstract}
+
+\keywords{astrocytes, neuroligin, scRNA-seq, tripartite synapse, single-cell transcriptomics, co-expression network, reactive gliosis}
+
+%% ─────────────────────────────────────────────────────────────────
+\begin{document}
+\maketitle
+
+%% ─────────────────────────────────────────────────────────────────
+\section{Introduction}
+
+Synaptic transmission has long been modeled as a bipartite process between pre- and postsynaptic neurons. However, this view has been substantially revised with the emergence of the tripartite synapse model, in which perisynaptic astrocytic processes actively participate in neurotransmitter uptake, ion buffering, and synapse formation and elimination \cite{araque1999tripartite, perea2009tripartite}. Astrocytes are now recognized as morphologically and molecularly heterogeneous, with distinct subtypes --- including grey matter, white matter, perisynaptic, and reactive astrocytes --- exhibiting markedly different gene expression profiles and functional properties \cite{bayraktar2020astrocyte, zeisel2018molecular}.
+
+Neuroligins (Nlgn1--3) are postsynaptic cell adhesion molecules that interact with presynaptic neurexins to regulate synapse assembly and maturation \cite{sudhof2008neuroligin, varoqueaux2006neuroligins}. Nlgn1 is preferentially localized to excitatory synapses, Nlgn2 to inhibitory synapses, and Nlgn3 to both \cite{graf2004neurexins, chubykin2007activity}. While their neuronal roles are well established, it remains unclear whether astrocytes express Neuroligin isoforms, how this expression varies across astrocyte subtypes, and what biological programs co-vary with Neuroligin expression in glia.
+
+The advent of single-cell RNA sequencing (scRNA-seq) provides an unprecedented opportunity to characterize gene expression at cellular resolution across millions of cells \cite{wolf2018scanpy}. Large-scale atlases such as the Allen Brain Cell Atlas have profiled tens of thousands of cells from the mouse brain, enabling systematic analysis of rare and heterogeneous populations including astrocyte subtypes \cite{tasic2018shared}.
+
+Here we present \textit{AstroSynapse}, a modular Python-based scRNA-seq pipeline that: (1) preprocesses and quality-controls raw scRNA-seq data, (2) performs unsupervised clustering and cell-type annotation to isolate astrocytes, (3) identifies astrocyte subtypes through sub-clustering, (4) quantifies Neuroligin isoform expression across subtypes with differential expression testing, and (5) constructs Pearson co-expression networks and performs Gene Ontology enrichment analysis. Applying this pipeline to the Allen Brain Cell Atlas mouse motor cortex dataset, we characterize Neuroligin isoform expression patterns across four astrocyte subtypes and identify a reactive-state-specific upregulation of Nlgn2 and Nlgn3, suggesting a previously unrecognized role for Neuroligins in reactive gliosis.
+
+%% ─────────────────────────────────────────────────────────────────
+\section{Related Work}
+
+\subsection{Astrocyte Heterogeneity and Subtypes}
+Early studies treated astrocytes as a homogeneous population, but single-cell transcriptomics has revealed substantial diversity. Bayraktar et al.\ \cite{bayraktar2020astrocyte} identified layer-specific astrocyte subtypes in the mouse cortex using single-cell in situ transcriptomics, demonstrating distinct molecular signatures for grey matter, white matter, and fibrous astrocytes. Zeisel et al.\ \cite{zeisel2018molecular} further catalogued astrocyte diversity across brain regions using the 10x Chromium platform, identifying perisynaptic astrocytes enriched for glutamate transporter genes (\textit{Slc1a2}, \textit{Slc1a3}) and synaptic adhesion molecules.
+
+\subsection{Neuroligins in Synaptic Organization}
+Neuroligins function as postsynaptic organizers that recruit scaffold proteins such as PSD-95 (at excitatory synapses, via Nlgn1) and gephyrin (at inhibitory synapses, via Nlgn2) \cite{varoqueaux2006neuroligins, chubykin2007activity}. Loss-of-function studies have linked Neuroligin mutations to autism spectrum disorder and intellectual disability \cite{jamain2003mutations, laumonnier2004x}. While astrocytic expression of Neuroligins has been noted in transcriptomic surveys, no study has systematically characterized their isoform-specific distribution across astrocyte subtypes or linked their expression to known astrocyte states.
+
+\subsection{Computational scRNA-seq Analysis}
+State-of-the-art scRNA-seq analysis pipelines typically follow a standard workflow: quality control, normalization, dimensionality reduction via PCA, graph-based clustering (e.g., Leiden \cite{traag2019louvain}), and UMAP visualization \cite{mcinnes2018umap}. Scanpy \cite{wolf2018scanpy} provides a comprehensive Python framework for this analysis. Co-expression network analysis using Pearson correlation has been widely used to identify gene modules and infer functional relationships \cite{langfelder2008wgcna}.
+
+%% ─────────────────────────────────────────────────────────────────
+\section{Methods}
+
+\subsection{Dataset}
+We analyzed the Allen Brain Cell Atlas mouse primary motor cortex single-nucleus RNA-seq dataset (10x Chromium v3, \textit{Mus musculus}), obtained from the Chan Zuckerberg CellXGene portal \cite{tasic2018shared}. The raw dataset comprised 159,738 nuclei profiled across 30,177 genes.
+
+\subsection{Quality Control and Preprocessing}
+Cells were filtered using the following thresholds: minimum 200 genes per cell, maximum 6,000 genes per cell (to remove likely doublets), and a minimum of 3 cells per gene. No mitochondrial gene filtering was applied, as nuclear RNA sequencing data does not capture mitochondrial transcripts. After filtering, 143,706 cells and 26,100 genes were retained. Counts were normalized to 10,000 counts per cell (CPM normalization) followed by log$_1$p transformation. Log-normalized values were stored as a separate layer (\texttt{log\_norm}) prior to scaling, and scaling was performed for PCA only. The top 2,000 highly variable genes (HVGs) were selected using the Seurat flavor \cite{stuart2019comprehensive}, and PCA was computed on 50 principal components.
+
+\subsection{Cell-Type Annotation and Astrocyte Extraction}
+A $k$-nearest-neighbor graph was constructed using $k = 15$ and the first 30 PCs. UMAP was computed for visualization \cite{mcinnes2018umap}. Leiden clustering \cite{traag2019louvain} was applied at resolution 0.5, yielding 21 clusters. Cell-type labels provided with the Allen Brain Cell Atlas dataset were used directly for annotation, identifying 11 cell types. Astrocytes were extracted based on the label \texttt{astrocyte}, yielding 17,794 cells (12.4\% of the filtered dataset), consistent with reported astrocyte proportions in mouse motor cortex.
+
+\subsection{Astrocyte Sub-clustering and Subtype Annotation}
+HVG selection, scaling, and PCA were recomputed on the isolated astrocyte population. Leiden clustering at resolution 0.4 identified 7 sub-clusters. Each cluster was annotated to one of four canonical astrocyte subtypes --- Grey matter, White matter, Reactive, and Perisynaptic --- based on top differentially expressed marker genes identified by Wilcoxon rank-sum test (using log-normalized expression values) and cross-referenced against published subtype marker gene sets \cite{bayraktar2020astrocyte, zeisel2018molecular}. Cluster-to-subtype assignments were as follows: clusters 0 and 4 (top markers: \textit{Gria2}, \textit{Cst3}, \textit{Apoe}) to Grey matter; cluster 1 (top markers: \textit{Slc7a10}, \textit{Grip1}) to Perisynaptic; cluster 2 (top markers: \textit{Clu}, \textit{Id3}) to White matter; clusters 3 and 5 (top markers: \textit{Gfap}, \textit{Aqp4}, \textit{Dlgap1}) to Reactive; cluster 6 (top markers: \textit{Stat2}, \textit{Ifit3}) to Reactive (interferon-stimulated).
+
+\subsection{Neuroligin Expression Analysis}
+Neuroligin isoforms Nlgn1, Nlgn2, and Nlgn3 were identified in the dataset by their Ensembl gene identifiers (ENSMUSG00000063887, ENSMUSG00000051790, and ENSMUSG00000031302, respectively), as the dataset uses Ensembl IDs as feature names. Expression was quantified using log-normalized values. Mean expression per astrocyte subtype was computed and visualized as a heatmap. Differential expression between each subtype and all remaining astrocytes (one-vs-rest) was assessed using the Wilcoxon rank-sum test, with Benjamini-Hochberg false discovery rate (FDR) correction applied across all tests \cite{benjamini1995controlling}.
+
+\subsection{Co-expression Network Analysis}
+To construct the co-expression network, we selected the top 500 HVGs expressed in at least 10\% of astrocytes. The Pearson correlation matrix was computed across all selected gene pairs. Hierarchical clustering of genes was performed using average linkage on a distance matrix defined as $d = 1 - |r|$, where $r$ is the Pearson correlation coefficient. Gene modules were defined by cutting the dendrogram at distance 0.85 (corresponding to $|r| > 0.15$). The Nlgn1 co-expression module was defined as the set of genes in the same hierarchical cluster as Nlgn1. A network graph of the module was constructed using NetworkX \cite{hagberg2008networkx}, with edges drawn between gene pairs with $|r| > 0.15$. Gene Ontology and pathway enrichment analysis was performed on the Nlgn1 module using g:Profiler \cite{raudvere2019gprofiler} with the mouse (\textit{Mus musculus}) background.
+
+\subsection{Implementation}
+All analyses were implemented in Python 3.10 using Scanpy 1.9+ \cite{wolf2018scanpy}, NumPy, Pandas, SciPy, Seaborn, Matplotlib, NetworkX, and gprofiler-official. The full pipeline source code is available at \url{https://github.com/sathvikloke/AstroSynapse}.
+
+%% ─────────────────────────────────────────────────────────────────
+\section{Results}
+
+\subsection{Dataset Overview and Quality Control}
+We applied the AstroSynapse pipeline to 159,738 single-nucleus RNA-seq profiles from the Allen Brain Cell Atlas mouse primary motor cortex dataset. After quality control filtering (removing 16,032 cells with $>6,000$ genes and genes detected in fewer than 3 cells), 143,706 high-quality nuclei and 26,100 genes were retained. PCA on the top 2,000 HVGs yielded a clear elbow at approximately 20--30 principal components, supporting the use of 30 PCs for downstream neighbor graph construction.
+
+\subsection{Cell-Type Composition}
+Leiden clustering identified 21 clusters, which were annotated using pre-existing cell-type labels from the Allen Brain Cell Atlas. The dataset comprised 11 cell types, with glutamatergic neurons (71,037 cells, 49.4\%) and oligodendrocytes (20,377 cells, 14.2\%) being the most abundant populations. Astrocytes comprised 17,794 cells (12.4\%), consistent with expected proportions in mouse motor cortex.
+
+\subsection{Astrocyte Subtype Identification}
+Sub-clustering of the 17,794 isolated astrocytes at Leiden resolution 0.4 identified 7 clusters, which were annotated to four canonical subtypes (Figure~\ref{fig:umap}):
+
+\begin{itemize}
+  \item \textbf{Grey matter} (clusters 0, 4): Enriched for \textit{Gria2} (AMPA receptor subunit), \textit{Cst3}, and \textit{Apoe}, representing homeostatic cortical astrocytes.
+  \item \textbf{Perisynaptic} (cluster 1): Defined by high \textit{Slc7a10} (alanine/serine transporter enriched at perisynaptic processes) and \textit{Grip1} (glutamate receptor-interacting protein).
+  \item \textbf{White matter} (cluster 2): Marked by \textit{Clu} (clusterin) and \textit{Id3}, both canonical white matter astrocyte markers.
+  \item \textbf{Reactive} (clusters 3, 5, 6): Defined by elevated \textit{Gfap}, \textit{Aqp4}, and interferon response genes \textit{Stat2} and \textit{Ifit3}, indicating activation states including an interferon-stimulated reactive subpopulation.
+\end{itemize}
+
+Notably, two clusters (0 and 4) were separated by sex-linked gene expression (\textit{Xist} enriched in cluster 0; \textit{Uty} and \textit{Eif2s3y} enriched in cluster 4), consistent with known sex-biased transcriptomic variation in astrocytes. Both were assigned to the Grey matter subtype.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{figures/03a_umap_astrocyte_clusters.png}
+  \caption{UMAP of the 17,794 isolated astrocytes coloured by Leiden cluster (resolution = 0.4), showing 7 sub-clusters.}
+  \label{fig:umap}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{figures/03c_umap_astrocyte_subtypes.png}
+  \caption{UMAP of astrocyte sub-clusters coloured by manually annotated subtype labels: Grey matter, White matter, Perisynaptic, and Reactive.}
+  \label{fig:subtypes}
+\end{figure}
+
+\subsection{Neuroligin Isoform Expression Across Astrocyte Subtypes}
+All three Neuroligin isoforms (Nlgn1, Nlgn2, Nlgn3) were detected in mouse motor cortex astrocytes. Differential expression analysis (one-vs-rest Wilcoxon test, FDR correction) identified nine significant subtype-specific associations (Table~\ref{tab:de}).
+
+\begin{table}[h]
+\centering
+\caption{Significant differential expression results for Neuroligin isoforms across astrocyte subtypes (FDR $<$ 0.05).}
+\label{tab:de}
+\begin{tabular}{llrr}
+\toprule
+\textbf{Gene} & \textbf{Subtype} & \textbf{log$_2$FC} & \textbf{FDR} \\
+\midrule
+Nlgn1 & Reactive     & $-0.188$ & $< 10^{-300}$ \\
+Nlgn1 & Grey matter  & $+0.064$ & $< 10^{-244}$ \\
+Nlgn2 & Reactive     & $+0.488$ & $9.67 \times 10^{-16}$ \\
+Nlgn1 & White matter & $-0.015$ & $1.23 \times 10^{-12}$ \\
+Nlgn3 & Reactive     & $+0.383$ & $5.88 \times 10^{-12}$ \\
+Nlgn2 & Grey matter  & $-0.231$ & $2.19 \times 10^{-6}$ \\
+Nlgn3 & Grey matter  & $-0.105$ & $1.57 \times 10^{-2}$ \\
+Nlgn2 & White matter & $-0.111$ & $3.57 \times 10^{-2}$ \\
+Nlgn1 & Perisynaptic & $+0.014$ & $3.73 \times 10^{-2}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The most prominent finding was the significant upregulation of both \textbf{Nlgn2} (log$_2$FC = +0.488) and \textbf{Nlgn3} (log$_2$FC = +0.383) in Reactive astrocytes. Conversely, \textbf{Nlgn1} was downregulated in Reactive astrocytes and modestly enriched in Grey matter astrocytes, suggesting it is predominantly a feature of homeostatic cortical astrocytes. Nlgn1 showed a small but significant enrichment in Perisynaptic astrocytes, consistent with its role at excitatory synapses. The mean expression heatmap confirmed these patterns, with Reactive astrocytes displaying the highest Nlgn2 and Nlgn3 expression across all subtypes (Figure~\ref{fig:heatmap}).
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{figures/04c_heatmap_nlgn_by_subtype.png}
+  \caption{Heatmap of mean log-normalised Neuroligin isoform expression per astrocyte subtype. Reactive astrocytes show the highest Nlgn2 and Nlgn3 expression; Grey matter astrocytes show the highest Nlgn1 expression.}
+  \label{fig:heatmap}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{figures/04a_feature_plots_nlgn.png}
+  \caption{UMAP feature plots coloured by Nlgn1, Nlgn2, and Nlgn3 expression levels across astrocyte sub-clusters.}
+  \label{fig:feature}
+\end{figure}
+
+\subsection{Nlgn1 Co-expression Module and Pathway Enrichment}
+Pearson co-expression analysis of the top 503 expressed genes identified an 83-gene Nlgn1 co-expression module (hierarchical clustering, $|r| > 0.15$). The resulting network comprised 83 nodes and 2,681 edges, indicating dense co-expression relationships. GO enrichment analysis using g:Profiler identified \textbf{343 significant biological terms} (FDR $<$ 0.05) within the Nlgn1 module, spanning categories including synaptic signaling, glutamate receptor activity, ion transport, and astrocyte metabolic regulation. The enrichment of synaptic transmission terms in a module defined by an astrocytic Neuroligin isoform supports a model in which Nlgn1 participates in astrocyte-synapse signaling programs in the motor cortex (Figure~\ref{fig:network} and Figure~\ref{fig:go}).
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{figures/05b_coexpr_network.png}
+  \caption{Co-expression network graph of the 83-gene Nlgn1 module (2,681 edges, $|r| > 0.15$). Node size reflects degree centrality; Nlgn1 (ENSMUSG00000063887) is highlighted.}
+  \label{fig:network}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{figures/05c_GO_enrichment.png}
+  \caption{Top Gene Ontology and pathway enrichment terms for the 83-gene Nlgn1 co-expression module (g:Profiler, FDR $<$ 0.05). Terms are ranked by significance.}
+  \label{fig:go}
+\end{figure}
+
+%% ─────────────────────────────────────────────────────────────────
+\section{Discussion}
+
+\subsection{Neuroligin Isoforms Mark Distinct Astrocyte States}
+Our analysis reveals that Neuroligin isoforms are differentially expressed across astrocyte subtypes in the mouse motor cortex, suggesting isoform-specific functional roles in glial biology. The preferential expression of Nlgn1 in Grey matter astrocytes, combined with its enrichment in a co-expression module associated with synaptic signaling, is consistent with a role in maintaining excitatory synapse contacts at perisynaptic astrocyte processes under homeostatic conditions. Nlgn1's known role in organizing excitatory postsynaptic densities \cite{sudhof2008neuroligin} may extend to astrocytic membrane domains that contact glutamatergic synapses.
+
+\subsection{Reactive Upregulation of Nlgn2 and Nlgn3}
+The most striking finding of this study is the significant upregulation of Nlgn2 and Nlgn3 in Reactive astrocytes. Reactive astrogliosis is a state of astrocyte activation triggered by injury, inflammation, or disease, characterized by transcriptional reprogramming and morphological changes \cite{liddelow2017neurotoxic}. The shift in Neuroligin expression profile --- from Nlgn1-dominant in homeostatic astrocytes to Nlgn2/3-enriched in reactive states --- may reflect changes in the types of synaptic contacts that reactive astrocytes form or modulate. Nlgn2's established role at inhibitory synapses \cite{varoqueaux2006neuroligins} raises the possibility that reactive astrocytes upregulate inhibitory synapse-associated machinery, potentially contributing to the synaptic imbalance observed in neurological conditions involving reactive gliosis.
+
+The identification of an interferon-stimulated reactive subpopulation (cluster 6, marked by \textit{Stat2} and \textit{Ifit3}) within the Reactive subtype suggests that the observed Nlgn2/3 upregulation may be heterogeneous, with different reactive states potentially driving expression of different isoforms. Future work with higher-resolution subclustering or pseudotime trajectory analysis could dissect these contributions.
+
+\subsection{Limitations}
+Several limitations of this study should be noted. First, single-nucleus RNA-seq captures nuclear RNA, which may underrepresent cytoplasmic transcripts including those for synapse-localized proteins. Second, the Allen Brain Cell Atlas motor cortex dataset does not include spatial information, preventing direct localization of Neuroligin-expressing astrocytes relative to specific synapse types. Third, the sex-driven cluster separation observed in Grey matter clusters highlights the need for sex-stratified analyses in future studies. Finally, co-expression does not imply co-regulation or physical interaction, and the Nlgn1 co-expression module requires experimental validation.
+
+\subsection{Future Directions}
+Future work should validate Neuroligin protein localization in astrocyte subtypes using immunofluorescence or proximity ligation assays. Spatial transcriptomics datasets (e.g., MERFISH) could provide regional context for the observed expression patterns. Functional studies using astrocyte-specific Nlgn knockouts would directly test the role of these isoforms in astrocyte-synapse signaling. Extension of the AstroSynapse pipeline to human cortical datasets could assess conservation of these findings across species.
+
+%% ─────────────────────────────────────────────────────────────────
+\section{Conclusion}
+
+We present AstroSynapse, a computational pipeline for profiling Neuroligin isoform expression across astrocyte subtypes using single-cell RNA sequencing. Applied to mouse motor cortex data, our pipeline identifies four astrocyte subtypes and reveals a reactive-state-specific upregulation of Nlgn2 and Nlgn3, alongside Nlgn1 enrichment in homeostatic grey matter astrocytes. Co-expression network analysis places Nlgn1 within an 83-gene module enriched for synaptic and metabolic pathways. These findings implicate Neuroligin isoforms as molecular markers of astrocyte state transitions and suggest previously unrecognized roles for glial Neuroligins in synaptic remodeling during reactive gliosis. The AstroSynapse pipeline is open-source and generalizable to other scRNA-seq datasets and gene families of interest.
+
+%% ─────────────────────────────────────────────────────────────────
+\begin{acks}
+The authors thank the Allen Institute for Brain Science for making the Allen Brain Cell Atlas publicly available, and the Chan Zuckerberg Initiative for the CellXGene platform.
+\end{acks}
+
+%% ─────────────────────────────────────────────────────────────────
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}

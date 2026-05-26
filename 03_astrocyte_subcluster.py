@@ -118,7 +118,8 @@ print("\n  Computing per-cluster marker genes (Wilcoxon) ...")
 # BUG FIX: adata.X is scaled at this point (after sc.pp.scale).
 # layer="log_norm" ensures DE testing uses log-normalised expression values.
 sc.tl.rank_genes_groups(adata, groupby="astrocyte_cluster",
-                        method="wilcoxon", n_genes=20, layer="log_norm")
+                        method="wilcoxon", n_genes=20, layer="log_norm",
+                        use_raw=False)
 
 rows = []
 for cluster in adata.obs["astrocyte_cluster"].cat.categories:
@@ -146,8 +147,13 @@ print(f"  Marker genes saved: {csv_path}")
 #   ASTRO_CLUSTER_TO_SUBTYPE = {"0": "Grey_matter", "1": "Perisynaptic", ...}
 
 ASTRO_CLUSTER_TO_SUBTYPE = {
-    # cluster : subtype
-    # ↓ Fill in after inspecting the dot plot and marker CSV ↓
+    "0": "Grey_matter",    # Gria2, Trpm3 — cortical grey matter (female cells by Xist)
+    "1": "Perisynaptic",   # Slc7a10 (key perisynaptic marker), Grip1
+    "2": "White_matter",   # Clu, Id3 — both canonical white matter markers
+    "3": "Reactive",       # Gfap (top), Aqp4, Fabp7 — high Gfap = reactive state
+    "4": "Grey_matter",    # Cst3, Apoe, Clu — cortical grey matter (male cells)
+    "5": "Perisynaptic",   # Dlgap1, Nkain2 — synaptic-associated genes
+    "6": "Reactive",       # Stat2, Ifit3 — interferon-stimulated reactive astrocytes
 }
 
 if not ASTRO_CLUSTER_TO_SUBTYPE:
@@ -166,6 +172,7 @@ if not ASTRO_CLUSTER_TO_SUBTYPE:
 adata.obs["astrocyte_subtype"] = (
     adata.obs["astrocyte_cluster"]
     .map(ASTRO_CLUSTER_TO_SUBTYPE)
+    .astype(object)
     .fillna("Unknown")
     .astype("category")
 )
